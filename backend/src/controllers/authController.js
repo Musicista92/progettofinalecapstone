@@ -119,34 +119,54 @@ export const getMe = async (req, res, next) => {
 // @access  Private
 export const updateProfile = async (req, res, next) => {
   try {
-    // Check validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      const error = createError(400, "Dati del profilo non validi");
-      error.errorsList = errors.array();
-      throw error;
+    // Gestisci il caso in cui req.body sia undefined o vuoto
+    const { name = "", city = "" } = req.body || {};
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      throw createError(404, "Utente non trovato");
     }
 
-    const allowedFields = ["name", "bio", "avatar", "preferences", "location"];
+    // Aggiorna i campi di testo solo se forniti
+    if (name && name.trim()) {
+      user.name = name.trim();
+    }
 
-    const updateData = {};
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
+    if (city !== undefined) {
+      // Assicura che 'location' esista prima di assegnare 'city'
+      user.location = { ...(user.location || {}), city: city.trim() };
+    }
+
+    // Aggiorna l'avatar se un nuovo file è stato caricato
+    if (req.file) {
+      // Cancella il vecchio avatar da Cloudinary se non è quello di default
+      if (user.avatar && user.avatar.includes("cloudinary")) {
+        const oldPublicId = extractPublicId(user.avatar);
+        if (oldPublicId) {
+          // Non bloccare l'operazione se la cancellazione fallisce
+          try {
+            await deleteFromCloudinary(oldPublicId);
+          } catch (e) {
+            console.error("Failed to delete old avatar:", e);
+          }
+        }
       }
-    });
+      user.avatar = req.file.path; // req.file.path è l'URL sicuro di Cloudinary
+    }
 
-    const user = await User.findByIdAndUpdate(req.user._id, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedUser = await user.save();
+
+    // Rimuovi la password dalla risposta per sicurezza
+    updatedUser.password = undefined;
 
     res.json({
       success: true,
-      message: "Profilo aggiornato con successo",
-      data: { user },
+      message: "Profilo aggiornato con successo!",
+      data: updatedUser,
     });
   } catch (error) {
+    console.error("Errore updateProfile:", error);
     next(error);
   }
 };
