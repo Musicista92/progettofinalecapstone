@@ -9,8 +9,8 @@ import {
   updateEventStatus,
   getMyEvents,
   getJoinedEvents,
-  toggleFavourite, // NUOVO
-  getFavouriteEvents, // NUOVO
+  toggleFavourite,
+  getFavouriteEvents,
 } from "../controllers/eventController.js";
 import {
   authenticate,
@@ -24,13 +24,13 @@ const router = express.Router();
 
 // Public routes
 router.get("/", getEvents);
-router.get("/:id", getEventById);
+router.get("/:id", authenticate, getEventById);
 
 // Protected routes - General users
 router.get("/user/joined", authenticate, getJoinedEvents);
-router.get("/user/favourites", authenticate, getFavouriteEvents); // NUOVO
+router.get("/user/favourites", authenticate, getFavouriteEvents);
 router.post("/:id/participate", authenticate, toggleParticipation);
-router.post("/:id/favourite", authenticate, toggleFavourite); // NUOVO
+router.post("/:id/favourite", authenticate, toggleFavourite);
 
 // Protected routes - Organizers/Admins
 router.post(

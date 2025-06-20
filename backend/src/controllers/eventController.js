@@ -2,7 +2,10 @@ import { validationResult } from "express-validator";
 import Event from "../models/Event.js";
 import User from "../models/User.js";
 import { createError } from "../middleware/errorHandlers.js";
-import { createNotification } from "./notificationController.js";
+import {
+  createNotification,
+  notificationHelpers,
+} from "./notificationController.js";
 
 //Tutti gli eventi con filtri e pagination
 export const getEvents = async (req, res, next) => {
@@ -20,7 +23,7 @@ export const getEvents = async (req, res, next) => {
       eventType,
       dateFrom,
       dateTo,
-      status = "approved", // Default to approved events for public
+      status = "approved",
       featured,
       organizer,
       showPast,
@@ -116,7 +119,7 @@ export const getEvents = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("Error in getEvents:", error); // Debug log
+    console.error("Error in getEvents:", error);
     next(error);
   }
 };
@@ -127,36 +130,52 @@ export const getEvents = async (req, res, next) => {
 export const getEventById = async (req, res, next) => {
   try {
     const event = await Event.findById(req.params.id)
-      .populate("organizer", "name avatar bio contactInfo")
+      .populate("organizer", "name avatar bio contactInfo followers following")
       .populate("participants.user", "name avatar bio");
 
     if (!event) {
       throw createError(404, "Evento non trovato");
     }
 
-    // Check if event is approved (unless user is admin or organizer)
     if (
       event.status !== "approved" &&
       req.user?.role !== "admin" &&
       event.organizer._id.toString() !== req.user?._id.toString()
     ) {
-      throw createError(404, "Evento non trovato");
+      throw createError(404, "Evento non disponibile");
     }
 
-    // Check if user has favourited this event (if authenticated)
-    let isFavourite = false;
+    // Trasforma l'evento e l'organizzatore in oggetti manipolabili
+    const eventObject = event.toObject();
+
+    // Controlla lo stato di "favourite" e "following" SOLO se l'utente è loggato
     if (req.user) {
-      const user = await User.findById(req.user._id).select("favouriteEvents");
-      isFavourite = user.favouriteEvents.includes(req.params.id);
+      // Controlla se l'utente corrente ha messo l'evento tra i preferiti
+      eventObject.isFavourite = req.user.favouriteEvents.some((favId) =>
+        favId.equals(event._id)
+      );
+
+      // Controlla se l'utente corrente segue l'organizzatore
+      if (eventObject.organizer) {
+        // Recupera l'utente corrente con i suoi following
+        const currentUser = await User.findById(req.user._id).select(
+          "following"
+        );
+        eventObject.organizer.isFollowing = currentUser.following.some(
+          (followedId) => followedId.equals(eventObject.organizer._id)
+        );
+      }
+    } else {
+      eventObject.isFavourite = false;
+      if (eventObject.organizer) {
+        eventObject.organizer.isFollowing = false;
+      }
     }
 
     res.json({
       success: true,
       data: {
-        event: {
-          ...event.toObject(),
-          isFavourite,
-        },
+        event: eventObject,
       },
     });
   } catch (error) {
@@ -205,7 +224,7 @@ export const createEvent = async (req, res, next) => {
         data: {
           eventId: event._id,
         },
-        actionUrl: `#`,
+        actionUrl: `/my-events/${event._id}`, // O una pagina di gestione eventi
       });
 
       // Notifica 2: Per tutti gli amministratori
@@ -543,6 +562,7 @@ export const getFavouriteEvents = async (req, res, next) => {
 // @access  Private (Admin)
 export const updateEventStatus = async (req, res, next) => {
   try {
+    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       const error = createError(400, "Dati status non validi");
@@ -561,57 +581,65 @@ export const updateEventStatus = async (req, res, next) => {
       throw createError(404, "Evento non trovato");
     }
 
+    const previousStatus = event.status;
     event.status = status;
+
     if (status === "rejected" && rejectionReason) {
       event.rejectionReason = rejectionReason;
-    } else {
-      event.rejectionReason = undefined;
     }
 
     await event.save();
 
-    try {
-      let notificationTitle = "";
-      let notificationMessage = "";
-      let notificationType = "event_status_updated";
+    // Invia notifica all'organizzatore solo se lo status è cambiato
+    if (previousStatus !== status) {
+      try {
+        let notificationData;
 
-      if (status === "approved") {
-        notificationTitle = "Il tuo evento è stato approvato!";
-        notificationMessage = `Congratulazioni! Il tuo evento "${event.title}" è stato approvato ed è ora visibile a tutti.`;
-        notificationType = "event_approved";
-      } else if (status === "rejected") {
-        notificationTitle = "Aggiornamenti sul tuo evento";
-        notificationMessage = `Il tuo evento "${
-          event.title
-        }" è stato revisionato ma non può essere approvato in questo momento. Motivo: ${
-          rejectionReason || "Nessun motivo specificato."
-        }`;
-        notificationType = "event_rejected";
-      }
+        switch (status) {
+          case "approved":
+            notificationData = notificationHelpers.eventApproved(
+              event._id,
+              event.organizer._id,
+              event.title
+            );
+            break;
+          case "rejected":
+            notificationData = notificationHelpers.eventRejected(
+              event._id,
+              event.organizer._id,
+              event.title,
+              rejectionReason
+            );
+            break;
+          case "cancelled":
+            notificationData = notificationHelpers.eventCancelled(
+              event._id,
+              event.organizer._id,
+              event.title
+            );
+            break;
+        }
 
-      if (notificationTitle) {
-        await createNotification({
-          recipient: event.organizer._id,
-          type: notificationType,
-          title: notificationTitle,
-          message: notificationMessage,
-          data: {
-            eventId: event._id,
-            adminId: req.user._id,
-          },
-          actionUrl: `/my-events/${event._id}`,
-        });
+        if (notificationData) {
+          await createNotification(notificationData);
+        }
+      } catch (notificationError) {
+        console.error("Errore creazione notifica:", notificationError);
+        // Non far fallire l'operazione se la notifica non viene creata
       }
-    } catch (notificationError) {
-      console.error(
-        "Failed to send event status notification:",
-        notificationError
-      );
     }
 
     res.json({
       success: true,
-      message: `Stato dell'evento aggiornato a "${status}"`,
+      message: `Evento ${
+        status === "approved"
+          ? "approvato"
+          : status === "rejected"
+          ? "rifiutato"
+          : status === "cancelled"
+          ? "annullato"
+          : "aggiornato"
+      }`,
       data: { event },
     });
   } catch (error) {

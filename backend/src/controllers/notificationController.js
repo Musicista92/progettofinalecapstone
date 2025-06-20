@@ -151,9 +151,8 @@ export const notificationHelpers = {
     recipient: organizerId,
     type: "event_rejected",
     title: "Evento Rifiutato",
-    message: `Il tuo evento è stato rifiutato. ${
-      reason ? "Motivo: " + reason : ""
-    }`,
+    message: `Il tuo evento è stato rifiutato. ${reason ? "Motivo: " + reason : ""
+      }`,
     data: { eventId },
     actionUrl: `/events/${eventId}`,
   }),
@@ -167,7 +166,7 @@ export const notificationHelpers = {
     actionUrl: `/events/${eventId}`,
   }),
 
-  // NUOVO: Notifica per evento aggiunto ai preferiti
+  // Notifica per evento aggiunto ai preferiti
   eventFavourite: (eventId, organizerId, userName, eventTitle) => ({
     recipient: organizerId,
     type: "event_favourite",

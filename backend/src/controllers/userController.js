@@ -91,26 +91,33 @@ export const getUserById = async (req, res, next) => {
       status: "approved",
     })
       .sort({ dateTime: -1 })
-      .limit(10) // Limitiamo per non appesantire troppo
+      .limit(10)
       .select("title image dateTime location description price");
 
-    // If requesting user is logged in, check if they follow this user
-    let isFollowing = false;
+    // Crea l'oggetto di risposta base
+    const userData = {
+      ...user.toObject(),
+      organizedEvents,
+      followersCount: user.followers.length,
+      followingCount: user.following.length,
+      favouritesCount: user.favouriteEvents?.length || 0,
+    };
+
+    // Se c'è un utente autenticato, verifica se segue questo profilo
     if (req.user) {
-      isFollowing = req.user.following.includes(req.params.id);
+      // Recupera l'utente corrente con i suoi following
+      const currentUser = await User.findById(req.user._id).select("following");
+      userData.isFollowing = currentUser.following.some((followedId) =>
+        followedId.equals(user._id)
+      );
+    } else {
+      userData.isFollowing = false;
     }
 
     res.json({
       success: true,
       data: {
-        user: {
-          ...user.toObject(),
-          organizedEvents,
-          isFollowing,
-          followersCount: user.followers.length,
-          followingCount: user.following.length,
-          favouritesCount: user.favouriteEvents?.length || 0,
-        },
+        user: userData,
       },
     });
   } catch (error) {
@@ -124,9 +131,9 @@ export const getUserById = async (req, res, next) => {
 export const followUser = async (req, res, next) => {
   try {
     const targetUserId = req.params.id;
-    const currentUserId = req.user._id;
+    const currentUser = req.user; // Usa direttamente l'utente dal middleware auth
 
-    if (targetUserId === currentUserId.toString()) {
+    if (targetUserId === currentUser._id.toString()) {
       throw createError(400, "Non puoi seguire te stesso");
     }
 
@@ -135,61 +142,52 @@ export const followUser = async (req, res, next) => {
       throw createError(404, "Utente non trovato");
     }
 
-    const currentUser = await User.findById(currentUserId);
-
-    const isFollowing = currentUser.following.includes(targetUserId);
+    // Usa il metodo .some() con .equals() per un confronto più sicuro tra ObjectId
+    const isFollowing = currentUser.following.some((id) =>
+      id.equals(targetUserId)
+    );
 
     if (isFollowing) {
       // Unfollow
-      currentUser.following = currentUser.following.filter(
-        (id) => id.toString() !== targetUserId
-      );
-      targetUser.followers = targetUser.followers.filter(
-        (id) => id.toString() !== currentUserId.toString()
-      );
-
-      await currentUser.save();
-      await targetUser.save();
-
-      res.json({
-        success: true,
-        message: "Non segui più questo utente",
-        data: {
-          isFollowing: false,
-          followersCount: targetUser.followers.length,
-          followingCount: currentUser.following.length,
-        },
-      });
+      // Usiamo $pull per rimuovere atomicamente gli ID dagli array
+      await currentUser.updateOne({ $pull: { following: targetUserId } });
+      await targetUser.updateOne({ $pull: { followers: currentUser._id } });
     } else {
       // Follow
-      currentUser.following.push(targetUserId);
-      targetUser.followers.push(currentUserId);
+      // Usiamo $addToSet per aggiungere atomicamente e prevenire duplicati
+      await currentUser.updateOne({ $addToSet: { following: targetUserId } });
+      await targetUser.updateOne({ $addToSet: { followers: currentUser._id } });
 
-      await currentUser.save();
-      await targetUser.save();
-
-      // Create notification for followed user
       try {
         const notificationData = notificationHelpers.newFollower(
-          currentUserId,
+          currentUser._id,
           targetUserId
         );
         await createNotification(notificationData);
       } catch (notificationError) {
         console.error("Error creating follow notification:", notificationError);
-        // Don't fail the follow operation if notification fails
       }
-
-      res.json({
-        success: true,
-        message: "Ora segui questo utente",
-        data: {
-          isFollowing: true,
-          followersCount: targetUser.followers.length,
-          followingCount: currentUser.following.length,
-        },
-      });
     }
+
+    // Ricava i conteggi aggiornati dopo le operazioni
+    const updatedTargetUser = await User.findById(targetUserId).select(
+      "followers"
+    );
+    const updatedCurrentUser = await User.findById(currentUser._id).select(
+      "following"
+    );
+
+    res.json({
+      success: true,
+      message: isFollowing
+        ? "Non segui più questo utente"
+        : "Ora segui questo utente",
+      data: {
+        isFollowing: !isFollowing,
+        followersCount: updatedTargetUser.followers.length,
+        followingCount: updatedCurrentUser.following.length,
+      },
+    });
   } catch (error) {
     next(error);
   }

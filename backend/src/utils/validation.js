@@ -187,6 +187,7 @@ export const validateEvent = [
         return value;
       }
     })
+    // Ora isArray() funzionerà sul valore trasformato
     .isArray()
     .withMessage("Tags deve essere un array"),
 
@@ -252,12 +253,23 @@ export const validateComment = [
 ];
 
 export const validateCommentUpdate = [
+  // Il contenuto deve esistere se non c'è rating valido
   body("content")
+    .if(body("rating").not().exists({ checkFalsy: true }))
     .trim()
     .isLength({ min: 1, max: 1000 })
-    .withMessage("Il commento deve essere tra 1 e 1000 caratteri"),
-  body("rating")
+    .withMessage("Il commento è richiesto se non fornisci una valutazione."),
+
+  // Content validation generale (se presente)
+  body("content")
     .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage("Il commento non può superare i 1000 caratteri"),
+
+  // Rating validation che considera 0 come "non fornito"
+  body("rating")
+    .optional({ checkFalsy: true }) // checkFalsy: true considera 0, null, undefined, "" come "non fornito"
     .isInt({ min: 1, max: 5 })
     .withMessage("La valutazione deve essere tra 1 e 5"),
 ];

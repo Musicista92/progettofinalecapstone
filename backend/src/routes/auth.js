@@ -13,16 +13,23 @@ import {
   validateProfileUpdate,
   validatePasswordChange,
 } from "../utils/validation.js";
+import { avatarUploader } from "../config/upload.js";
 
 const router = express.Router();
 
 // Public routes
-router.post("/register", validateRegistration, register);
+router.post("/register",register);
 router.post("/login", validateLogin, login);
 
 // Protected routes
 router.get("/me", authenticate, getMe);
-router.put("/profile", authenticate, validateProfileUpdate, updateProfile);
+router.put(
+  "/profile",
+  authenticate,
+  avatarUploader,
+  validateProfileUpdate,
+  updateProfile
+);
 router.put(
   "/change-password",
   authenticate,

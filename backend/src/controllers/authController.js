@@ -9,12 +9,12 @@ import { createError } from "../middleware/errorHandlers.js";
 export const register = async (req, res, next) => {
   try {
     // Check validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      const error = createError(400, "Dati di registrazione non validi");
-      error.errorsList = errors.array();
-      throw error;
-    }
+    // const errors = validationResult(req);
+    // if (!errors.isEmpty()) {
+    //   const error = createError(400, "Dati di registrazione non validi");
+    //   error.errorsList = errors.array();
+    //   throw error;
+    // }
 
     const { name, email, password, role = "user" } = req.body;
 

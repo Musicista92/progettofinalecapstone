@@ -1,3 +1,4 @@
+// src/config/upload.js
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
@@ -83,6 +84,34 @@ export const eventGalleryUploader = multer({
   },
   fileFilter,
 }).array("galleryImages", 5);
+
+// General document uploader (for future use)
+export const documentUploader = multer({
+  storage: new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: "ritmo-events/documents",
+      allowed_formats: ["pdf", "doc", "docx"],
+      resource_type: "raw", // For non-image files
+    },
+  }),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(createError(400, "Solo file PDF e DOC sono permessi"), false);
+    }
+  },
+}).single("document");
 
 // Helper function to delete image from Cloudinary
 export const deleteFromCloudinary = async (publicId) => {
