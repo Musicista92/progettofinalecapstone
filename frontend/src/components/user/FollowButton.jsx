@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button, Spinner } from "react-bootstrap";
 import { UserPlus, UserCheck } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -8,72 +8,45 @@ import { useNavigate } from "react-router-dom";
 
 const FollowButton = ({
   targetUser,
+  isFollowing,
   onFollowToggle,
   size = "sm",
-  variant = "primary",
   className = "",
 }) => {
-  const { user, updateUser, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-
-  const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated && user && targetUser) {
-      setIsFollowing(user.following?.includes(targetUser._id) || false);
-    } else {
-      setIsFollowing(false);
-    }
-  }, [user, targetUser, isAuthenticated]);
-
   const handleToggleFollow = async (e) => {
+    e.preventDefault();
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      toast.error("Devi essere autenticato per seguire utenti");
+      toast.error("Devi essere autenticato per seguire utenti.");
       navigate("/login");
       return;
     }
 
-    if (user._id === targetUser._id) {
-      toast.error("Non puoi seguire te stesso");
+    if (!targetUser || !targetUser._id) {
+      toast.error("Utente di destinazione non valido.");
       return;
     }
 
     setLoading(true);
-    const toastId = toast.loading("Operazione in corso...");
-
     try {
-      const result = await apiService.users.toggleFollow(targetUser._id);
-
-      const newIsFollowing = result.isFollowing;
-      const newFollowersCount = result.followersCount;
-
-      setIsFollowing(newIsFollowing);
-      toast.success(result.message, { id: toastId });
-
+      const response = await apiService.users.toggleFollow(targetUser._id);
       if (onFollowToggle) {
-        onFollowToggle(newFollowersCount);
+        onFollowToggle(response);
       }
-
-      const updatedFollowing = newIsFollowing
-        ? [...(user.following || []), targetUser._id]
-        : (user.following || []).filter((id) => id !== targetUser._id);
-
-      updateUser({ ...user, following: updatedFollowing });
     } catch (error) {
       console.error("Error toggling follow:", error);
-      toast.error(error.message || "Errore durante l'operazione", {
-        id: toastId,
-      });
+      toast.error(error.message || "Errore durante l'operazione.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Se non sono autenticato, o sto guardando il mio profilo, non mostro il pulsante
-  if (!isAuthenticated || user?._id === targetUser?._id) {
+  if (!isAuthenticated || !targetUser || user?._id === targetUser._id) {
     return null;
   }
 

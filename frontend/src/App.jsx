@@ -41,10 +41,9 @@ function App() {
           {/* Public routes */}
           <Route path="/" element={<Home isAdmin={isAdmin} />} />
           <Route path="/events" element={<Events />} />
-          <Route path="/events/:id" element={<EventDetail />} />
+
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/users/:id" element={<UserProfile />} />
 
           {/* Protected routes - require authentication */}
           <Route
@@ -52,6 +51,24 @@ function App() {
             element={
               <ProtectedRoute>
                 <MyRitmo />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/users/:id"
+            element={
+              <ProtectedRoute>
+                <UserProfile />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/events/:id"
+            element={
+              <ProtectedRoute>
+                <EventDetail />
               </ProtectedRoute>
             }
           />
@@ -84,7 +101,7 @@ function App() {
 
       <Footer />
 
-      {/* Toast notifications */}
+      {/* Toast notifications - Configurazione corretta */}
       <Toaster
         position="top-right"
         reverseOrder={false}

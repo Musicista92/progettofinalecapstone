@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   Container,
@@ -26,6 +26,8 @@ import {
   UserCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { Form, InputGroup } from "react-bootstrap";
+import { Edit3, Save, XCircle } from "lucide-react";
 
 const UserProfile = () => {
   const { id } = useParams();
@@ -38,8 +40,23 @@ const UserProfile = () => {
   const [tabContent, setTabContent] = useState([]);
   const [isTabLoading, setIsTabLoading] = useState(false);
 
-  const handleFollowUpdate = useCallback((newFollowersCount) => {
-    setProfileUser((prev) => ({ ...prev, followersCount: newFollowersCount }));
+  //EDITING STATES
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({ name: "", city: "" });
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const fileInputRef = useRef(null);
+
+  const handleFollowUpdate = useCallback((response) => {
+    if (response.message) {
+      toast.success(response.message);
+    }
+
+    setProfileUser((prev) => ({
+      ...prev,
+      isFollowing: response.data.isFollowing,
+      followersCount: response.data.followersCount,
+    }));
   }, []);
 
   const fetchTabData = useCallback(
@@ -90,9 +107,19 @@ const UserProfile = () => {
       try {
         const response = await apiService.users.getById(id);
         const user = response.user;
+
         setProfileUser(user);
         setIsOwnProfile(currentUser?._id === user._id);
         setTabContent(user.organizedEvents || []);
+
+        // Questo assicura che il form parta con i dati corretti
+        if (user) {
+          setEditData({
+            name: user.name,
+            city: user.location?.city || "",
+          });
+          setAvatarPreview(user.avatar);
+        }
       } catch (error) {
         toast.error("Impossibile caricare il profilo utente.");
         setProfileUser(null);
@@ -105,6 +132,70 @@ const UserProfile = () => {
       fetchUserData();
     }
   }, [id, currentUser?._id]);
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // Annulla modifiche
+      setEditData({
+        name: profileUser.name,
+        city: profileUser.location?.city || "",
+      });
+      setAvatarFile(null);
+      setAvatarPreview(profileUser.avatar);
+    }
+    setIsEditing(!isEditing);
+  };
+
+  const handleInputChange = (e) => {
+    setEditData({ ...editData, [e.target.name]: e.target.value });
+  };
+
+  const handleAvatarChange = (e) => {
+    if (e.target.files[0]) {
+      const file = e.target.files[0];
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    const formData = new FormData();
+
+    // Assicurati che i campi non siano undefined
+    formData.append("name", editData.name || "");
+    formData.append("city", editData.city || "");
+
+    if (avatarFile) {
+      formData.append("avatar", avatarFile);
+    }
+
+    setIsTabLoading(true);
+    try {
+      const response = await apiService.auth.updateProfile(formData);
+
+      if (response.success && response.data) {
+        setProfileUser((prev) => ({
+          ...prev,
+          name: response.data.name,
+          location: response.data.location,
+          avatar: response.data.avatar,
+        }));
+
+        // Aggiorna anche l'avatar preview se è stato cambiato
+        if (response.data.avatar) {
+          setAvatarPreview(response.data.avatar);
+        }
+
+        toast.success(response.message || "Profilo aggiornato con successo!");
+        setIsEditing(false);
+      }
+    } catch (error) {
+      console.error("Errore frontend:", error);
+      toast.error(error.message || "Errore durante l'aggiornamento.");
+    } finally {
+      setIsTabLoading(false);
+    }
+  };
 
   if (loading) return <LoadingSpinner text="Caricamento profilo..." />;
   if (!profileUser)
@@ -123,30 +214,91 @@ const UserProfile = () => {
             style={{ top: "20px" }}
           >
             <Card.Body className="text-center">
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={handleAvatarChange}
+                accept="image/*"
+              />
               <img
-                src={profileUser.avatar}
+                src={avatarPreview}
                 alt={profileUser.name}
                 className="rounded-circle mb-3"
-                style={{ width: "150px", height: "150px", objectFit: "cover" }}
+                style={{
+                  width: "150px",
+                  height: "150px",
+                  objectFit: "cover",
+                  cursor: isEditing ? "pointer" : "default",
+                }}
+                onClick={() => isEditing && fileInputRef.current.click()}
               />
-              <h4 className="fw-bold">{profileUser.name}</h4>
+
+              {isEditing ? (
+                <Form.Control
+                  type="text"
+                  name="name"
+                  value={editData.name}
+                  onChange={handleInputChange}
+                  className="h4 fw-bold text-center mb-1"
+                />
+              ) : (
+                <h4 className="fw-bold">{profileUser.name}</h4>
+              )}
+
               <p className="text-muted mb-1">
                 {profileUser.role.charAt(0).toUpperCase() +
                   profileUser.role.slice(1)}
               </p>
-              <p className="text-muted">
-                <MapPin size={14} />{" "}
-                {profileUser.location?.city || "Nessuna località"}
-              </p>
+
+              {isEditing ? (
+                <InputGroup className="mb-3">
+                  <InputGroup.Text>
+                    <MapPin size={14} />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type="text"
+                    name="city"
+                    placeholder="La tua città"
+                    value={editData.city}
+                    onChange={handleInputChange}
+                  />
+                </InputGroup>
+              ) : (
+                <p className="text-muted">
+                  <MapPin size={14} />{" "}
+                  {profileUser.location?.city || "Nessuna località"}
+                </p>
+              )}
 
               {isOwnProfile ? (
-                <Button as={Link} to="/my-ritmo" variant="primary">
-                  Modifica Profilo
-                </Button>
+                isEditing ? (
+                  <div className="d-grid gap-2">
+                    <Button
+                      variant="primary"
+                      onClick={handleProfileUpdate}
+                      disabled={isTabLoading}
+                    >
+                      <Save size={16} />{" "}
+                      {isTabLoading ? "Salvataggio..." : "Salva Modifiche"}
+                    </Button>
+                    <Button
+                      variant="outline-secondary"
+                      onClick={handleEditToggle}
+                    >
+                      <XCircle size={16} /> Annulla
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="primary" onClick={handleEditToggle}>
+                    <Edit3 size={16} /> Modifica Profilo
+                  </Button>
+                )
               ) : (
                 <div className="d-grid col-8 mx-auto">
                   <FollowButton
                     targetUser={profileUser}
+                    isFollowing={profileUser.isFollowing || false}
                     onFollowToggle={handleFollowUpdate}
                     size="md"
                   />

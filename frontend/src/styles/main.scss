@@ -1,3 +1,4 @@
+// Custom theme colors for Caribbean dance vibe
 :root {
   --primary-color: #ff6b6b;
   --secondary-color: #4ecdc4;
@@ -12,6 +13,7 @@
   --transition: all 0.3s ease;
 }
 
+// Override Bootstrap variables
 $primary: #ff6b6b;
 $secondary: #4ecdc4;
 $success: #27ae60;
@@ -21,6 +23,7 @@ $danger: #e74c3c;
 $dark: #2c3e50;
 $light: #f8f9fa;
 
+// Global styles
 * {
   margin: 0;
   padding: 0;
@@ -181,9 +184,11 @@ body {
       border-color: var(--primary-color);
       box-shadow: 0 0 0 0.13rem rgba(255, 107, 107, 0.25);
     }
+
     &.is-invalid {
       border-color: #e74c3c;
     }
+
     &.is-invalid:focus {
       border-color: #e74c3c;
       box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25);
@@ -204,6 +209,7 @@ body {
       padding-right: 2.5rem;
       background-image: none;
     }
+
     .password-toggle-icon {
       position: absolute;
       right: 0.75rem;
@@ -233,6 +239,7 @@ body {
       border-color: var(--primary-color);
       box-shadow: 0 0 0 0.13rem rgba(255, 107, 107, 0.25);
     }
+
     &:checked {
       background-color: var(--primary-color);
       border-color: var(--primary-color);
@@ -408,6 +415,7 @@ body {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -452,8 +460,13 @@ body {
 /* ========================= DROPDOWN STYLES ======================== */
 /* ================================================================== */
 
+.dropdown {
+  position: static;
+}
+
 .dropdown-menu {
   z-index: 10050 !important;
+  // position: fixed !important;
   min-width: 200px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25) !important;
   border-radius: 8px !important;
@@ -469,30 +482,6 @@ body {
 .dropdown-menu-end {
   right: 0;
   left: auto;
-}
-
-.navbar-custom .user-dropdown-toggle .dropdown-toggle::after {
-  display: none !important;
-}
-
-.notifications-dropdown-menu {
-  width: 420px;
-  max-height: 70vh;
-  overflow-y: auto;
-  transform: translateX(-40px);
-
-  @media (max-width: 576px) {
-    width: calc(100vw - 40px);
-    transform: translateX(0);
-  }
-
-  .dropdown-item {
-    white-space: normal;
-
-    .flex-grow-1 {
-      min-width: 0;
-    }
-  }
 }
 
 /* ================================================================== */
@@ -606,6 +595,25 @@ body {
   position: relative !important;
 }
 
+// .sticky-top .dropdown-menu {
+//   position: absolute !important;
+//   z-index: 10050 !important;
+//   top: 100% !important;
+//   left: 0 !important;
+//   right: auto !important;
+//   transform: none !important;
+//   min-width: 200px;
+//   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+//   border-radius: 8px !important;
+//   border: none !important;
+// }
+
+// .sticky-top .dropdown[data-bs-popper*="top"] .dropdown-menu,
+// .sticky-top .dropdown.dropup .dropdown-menu {
+//   top: auto !important;
+//   bottom: 100% !important;
+// }
+
 .sticky-top .interactive-map-container {
   position: relative !important;
   z-index: 1 !important;
@@ -636,6 +644,18 @@ body {
 .event-info-card .d-grid:first-of-type {
   margin-top: 0;
 }
+
+// .sticky-top:nth-child(1) .dropdown-menu {
+//   z-index: 10051 !important;
+// }
+
+// .sticky-top:nth-child(2) .dropdown-menu {
+//   z-index: 10052 !important;
+// }
+
+// .sticky-top:nth-child(3) .dropdown-menu {
+//   z-index: 10053 !important;
+// }
 
 /* ================================================================== */
 /* ========================= TOAST NOTIFICATIONS =================== */
@@ -670,8 +690,8 @@ body {
   pointer-events: none;
 }
 
-.toast-container > *,
-.Toastify__toast-container > * {
+.toast-container>*,
+.Toastify__toast-container>* {
   pointer-events: auto;
 }
 
@@ -687,10 +707,13 @@ body {
   cursor: pointer;
   padding: 0;
   margin-left: 8px;
+
+  // Allineamento e colore
   display: flex;
   align-items: center;
   justify-content: center;
   color: #9ca3af;
+
   outline: none;
 
   &:hover {
@@ -826,7 +849,19 @@ body {
 }
 
 .social-dropdown .dropdown-menu[data-popper-placement^="bottom"] {
+  // Forza la sua posizione ad essere sempre sopra al bottone
   top: auto !important;
   bottom: 100% !important;
+
+  // Aggiunge un piccolo margine per evitare che si attacchi al bottone
   margin-bottom: 0.125rem !important;
+}
+
+/* ================================================================== */
+/* =================== CUSTOM COMPONENT OVERRIDES =================== */
+/* ================================================================== */
+
+/* Rimuove arrow down da profilo */
+#user-nav-dropdown::after {
+  display: none;
 }

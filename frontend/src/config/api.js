@@ -5,7 +5,7 @@ const isDevelopment =
 
 export const API_CONFIG = {
   BASE_URL: isDevelopment
-    ? "http://localhost:5000/api"
+    ? "http://localhost:5055/api"
     : "https://your-backend-domain.com/api",
   TIMEOUT: 10000,
 };

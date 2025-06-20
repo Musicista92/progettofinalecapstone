@@ -9,7 +9,6 @@ import {
   Heart,
   PlusCircle,
   Shield,
-  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import NotificationSystem from "./NotificationSystem";
@@ -40,7 +39,7 @@ const Header = () => {
       fixed="top"
       className="navbar-custom"
       expanded={expanded}
-      onToggle={(isExpanded) => setExpanded(isExpanded)}
+      onToggle={(expanded) => setExpanded(expanded)}
     >
       <Container>
         <Navbar.Brand as={Link} to="/" onClick={handleNavClick}>
@@ -105,6 +104,7 @@ const Header = () => {
                   </Nav.Link>
                 )}
 
+                {/* Notifications */}
                 <NotificationSystem />
 
                 <NavDropdown
@@ -120,26 +120,12 @@ const Header = () => {
                           objectFit: "cover",
                         }}
                       />
-                      <span className="d-none d-lg-inline">{user?.name}</span>
-                      <ChevronDown
-                        size={18}
-                        className="ms-1 d-none d-lg-inline"
-                      />
+                      <span className="d-none d-md-inline">{user?.name}</span>
                     </span>
                   }
                   id="user-nav-dropdown"
                   align="end"
-                  className="user-dropdown-toggle"
                 >
-                  <NavDropdown.Item
-                    as={Link}
-                    to={`/users/${user?._id}`}
-                    onClick={handleNavClick}
-                  >
-                    <User size={16} className="me-2" />
-                    Profilo
-                  </NavDropdown.Item>
-
                   <NavDropdown.Item
                     as={Link}
                     to="/my-ritmo"
@@ -147,6 +133,14 @@ const Header = () => {
                   >
                     <Heart size={16} className="me-2" />
                     MyRitmo
+                  </NavDropdown.Item>
+
+                  <NavDropdown.Item
+                    href={`users/${user._id}`}
+                    onClick={handleNavClick}
+                  >
+                    <User size={16} className="me-2" />
+                    Profilo
                   </NavDropdown.Item>
 
                   {isAdmin && (

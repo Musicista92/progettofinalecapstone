@@ -29,6 +29,7 @@ const CreateEvent = () => {
   }
 
   const handleCreateEvent = async (eventFormData) => {
+    // Il parametro è già un FormData
     setLoading(true);
     try {
       const newEvent = await apiService.events.create(eventFormData);
@@ -48,7 +49,7 @@ const CreateEvent = () => {
       console.error("Error creating event:", error);
       toast.error(
         error.response?.data?.message ||
-          "Errore durante la creazione dell'evento"
+        "Errore durante la creazione dell'evento"
       );
     } finally {
       setLoading(false);

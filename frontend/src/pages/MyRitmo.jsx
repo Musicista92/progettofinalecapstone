@@ -27,9 +27,11 @@ import InteractiveMap from "../components/common/InteractiveMap";
 import CalendarExport from "../components/common/CalendarExport";
 import { formatDate, getEventStatus } from "../utils/dateUtils";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const MyRitmo = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [favoriteEvents, setFavoriteEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("favorites");
@@ -365,13 +367,18 @@ const MyRitmo = () => {
                 />
               ) : (
                 <div className="text-center py-5">
-                  <MapPin size={64} className="text-muted mb-3" />
-                  <h4>Nessun evento da mostrare</h4>
-                  <p className="text-muted">
-                    Aggiungi eventi ai preferiti per vederli sulla mappa
-                  </p>
+                  <MapPin size={64} className="text-muted mb-0" />
+                  <Card className="border-0 bg-light mt-3">
+                    <Card.Body className="text-center">
+                      <h6 className="mb-2">🎉 Prossima Funzionalità</h6>
+                      <small className="text-muted">
+                        Presto potrai visualizzare una mappa interattiva con
+                        tutti gli eventi vicino a te!
+                      </small>
+                    </Card.Body>
+                  </Card>
                   <Button href="/events" className="btn-primary-custom">
-                    Esplora Eventi
+                    Tutti gli eventi
                   </Button>
                 </div>
               )}
@@ -406,15 +413,15 @@ const MyRitmo = () => {
                               user?.role === "admin"
                                 ? "danger"
                                 : user?.role === "organizer"
-                                ? "success"
-                                : "secondary"
+                                  ? "success"
+                                  : "secondary"
                             }
                           >
                             {user?.role === "admin"
                               ? "👑 Admin"
                               : user?.role === "organizer"
-                              ? "🎵 Organizzatore"
-                              : "🕺 Ballerino/a"}
+                                ? "🎵 Organizzatore"
+                                : "🕺 Ballerino/a"}
                           </Badge>
                         </div>
                       </div>
@@ -452,20 +459,18 @@ const MyRitmo = () => {
 
                 <Col md={4}>
                   <div className="d-grid gap-2">
-                    <Button variant="outline-primary">
+                    <Button
+                      variant="outline-primary"
+                      onClick={() => navigate(`/users/${user._id}`)}
+                    >
                       <Settings size={16} className="me-2" />
-                      Modifica Profilo
-                    </Button>
-                    <Button variant="outline-secondary">
-                      <Bell size={16} className="me-2" />
-                      Notifiche
+                      Vai al Profilo
                     </Button>
                     <Button variant="outline-info">
                       <MapPin size={16} className="me-2" />
                       Preferenze Località
                     </Button>
                   </div>
-
                   <Card className="border-0 bg-light mt-3">
                     <Card.Body className="text-center">
                       <h6 className="mb-2">🎉 Prossima Funzionalità</h6>
@@ -474,7 +479,7 @@ const MyRitmo = () => {
                         tutti gli eventi vicino a te!
                       </small>
                     </Card.Body>
-                  </Card>
+                  </Card>{" "}
                 </Col>
               </Row>
             </div>

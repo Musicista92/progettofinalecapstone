@@ -72,19 +72,59 @@ const EventDetail = () => {
 
   useEffect(() => {
     if (event && user) {
-      // Controlla partecipazione
       const userIsParticipant = (event?.participants || []).some(
         (p) => (p.user?._id || p.user) === user._id
       );
       setIsParticipant(userIsParticipant);
-
-      // Controlla favoriti (separato dalla partecipazione)
       setIsFavorite(event.isFavourite || false);
+
+      // Se l'organizzatore non ha il campo isFollowing, lo recuperiamo
+      if (event.organizer && event.organizer.isFollowing === undefined) {
+        checkFollowingStatus();
+      }
     } else {
       setIsParticipant(false);
       setIsFavorite(false);
     }
   }, [event, user]);
+
+  const checkFollowingStatus = async () => {
+    try {
+      const userData = await apiService.users.getById(user._id);
+      const isFollowing = userData.following?.some(
+        (followedUser) => followedUser._id === event.organizer._id
+      );
+
+      setEvent((prevEvent) => ({
+        ...prevEvent,
+        organizer: {
+          ...prevEvent.organizer,
+          isFollowing: isFollowing || false,
+        },
+      }));
+    } catch (error) {
+      console.error("Error checking following status:", error);
+    }
+  };
+
+  const handleFollowToggle = (response) => {
+    if (response.message) {
+      toast.success(response.message);
+    }
+
+    setEvent((prevEvent) => ({
+      ...prevEvent,
+      organizer: {
+        ...prevEvent.organizer,
+        isFollowing: response.data.isFollowing,
+        // Usiamo il `followers` esistente e aggiungiamo il nuovo conteggio per coerenza
+        followers: {
+          ...prevEvent.organizer.followers,
+          length: response.data.followersCount,
+        },
+      },
+    }));
+  };
 
   const handleToggleParticipation = async (e) => {
     e.preventDefault();
@@ -112,12 +152,12 @@ const EventDetail = () => {
 
       const newParticipants = wasParticipant
         ? (event.participants || []).filter(
-            (p) => (p.user?._id || p.user) !== user._id
-          )
+          (p) => (p.user?._id || p.user) !== user._id
+        )
         : [
-            ...(event.participants || []),
-            { user: user, registeredAt: new Date(), status: "registered" },
-          ];
+          ...(event.participants || []),
+          { user: user, registeredAt: new Date(), status: "registered" },
+        ];
 
       const updatedEventOptimistic = {
         ...event,
@@ -140,6 +180,7 @@ const EventDetail = () => {
           (p) => (p.user?._id || p.user) === user._id
         );
         setIsParticipant(serverIsParticipant);
+        // Mantieni separato il favorito dalla partecipazione
         setIsFavorite(updatedEvent.isFavourite || false);
       }
 
@@ -164,7 +205,7 @@ const EventDetail = () => {
     }
   };
 
-  // Handler per gestire i favoriti
+  // Handler per gestire i favoriti separatamente
   const handleToggleFavorite = async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -302,6 +343,7 @@ const EventDetail = () => {
                   {event.danceStyle?.charAt(0).toUpperCase() +
                     event.danceStyle?.slice(1)}
                 </Badge>
+                {/* Pulsante favoriti separato */}
                 {isAuthenticated && (
                   <Button
                     variant="danger"
@@ -398,24 +440,35 @@ const EventDetail = () => {
                   </div>
                 )}
 
-                <div className="d-flex align-items-center p-3 bg-light rounded">
-                  <img
-                    src={event.organizer?.avatar}
-                    alt={event.organizer?.name}
-                    className="rounded-circle me-3"
-                    style={{
-                      width: "50px",
-                      height: "50px",
-                      objectFit: "cover",
-                    }}
-                  />
-                  <div className="flex-grow-1">
-                    <h6 className="mb-1">Organizzato da</h6>
-                    <div className="fw-semibold">{event.organizer?.name}</div>
+                <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded">
+                  <Link
+                    to={`/users/${event.organizer?._id}`}
+                    className="text-decoration-none text-dark d-flex align-items-center"
+                  >
+                    <img
+                      src={event.organizer?.avatar}
+                      alt={event.organizer?.name}
+                      className="rounded-circle me-3"
+                      style={{
+                        width: "50px",
+                        height: "50px",
+                        objectFit: "cover",
+                      }}
+                    />
+                    <div>
+                      <h6 className="mb-1">Organizzato da</h6>
+                      <div className="fw-semibold">{event.organizer?.name}</div>
+                    </div>
+                  </Link>
+                  <div>
+                    {event.organizer && user?._id !== event.organizer?._id && (
+                      <FollowButton
+                        targetUser={event.organizer}
+                        isFollowing={event.organizer?.isFollowing || false}
+                        onFollowToggle={handleFollowToggle}
+                      />
+                    )}
                   </div>
-                  {event.organizer && (
-                    <FollowButton targetUser={event.organizer} />
-                  )}
                 </div>
               </Card.Body>
             </Card>
@@ -449,8 +502,8 @@ const EventDetail = () => {
                     now={
                       event.maxParticipants
                         ? ((event.currentParticipants || 0) /
-                            event.maxParticipants) *
-                          100
+                          event.maxParticipants) *
+                        100
                         : 0
                     }
                     style={{ height: "8px" }}
@@ -477,6 +530,7 @@ const EventDetail = () => {
                       </Button>
                     )}
 
+                    {/* Pulsante favoriti separato dalla partecipazione */}
                     {isAuthenticated && eventStatus === "upcoming" && (
                       <Button
                         variant="link"
@@ -506,6 +560,7 @@ const EventDetail = () => {
                     )}
                   </div>
 
+                  {/* Fixed sharing and calendar section */}
                   <div className="social-sharing-section mt-3">
                     <Row className="g-2">
                       <Col xs={6}>
@@ -593,11 +648,7 @@ const EventDetail = () => {
                         variant="outline-secondary"
                         size="sm"
                         className="w-100"
-                        onClick={() =>
-                          alert(
-                            "Logica per trovare la posizione dell'utente..."
-                          )
-                        }
+                        onClick={() => alert("WORK IN PROGRESS!")}
                       >
                         <MapPin size={14} className="me-2" />
                         Trova la mia posizione
@@ -609,8 +660,8 @@ const EventDetail = () => {
                         className="w-100"
                         href={`https://maps.google.com/?q=${encodeURIComponent(
                           (event.location?.address || "") +
-                            ", " +
-                            (event.location?.city || "")
+                          ", " +
+                          (event.location?.city || "")
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"

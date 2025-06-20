@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Card, Form, Button, Alert, Modal } from "react-bootstrap";
-import { Star, Heart, MessageCircle, Send, ThumbsUp } from "lucide-react";
+import { Card, Form, Button, Alert, Modal, Dropdown } from "react-bootstrap";
+import {
+  Star,
+  Heart,
+  MessageCircle,
+  Send,
+  ThumbsUp,
+  MoreVertical,
+  Edit2,
+  Trash2,
+} from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { apiService } from "../../services/api";
 import { formatDate, getEventStatus } from "../../utils/dateUtils";
@@ -15,6 +24,12 @@ const CommentsSection = ({ event, onEventUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
+
+  // Edit states
+  const [editingComment, setEditingComment] = useState(null);
+  const [editContent, setEditContent] = useState("");
+  const [editRating, setEditRating] = useState(0);
+  const [editHoverRating, setEditHoverRating] = useState(0);
 
   const eventStatus = getEventStatus(
     event.dateTime || event.date,
@@ -61,7 +76,7 @@ const CommentsSection = ({ event, onEventUpdate }) => {
       const newCommentObj = await apiService.comments.add(eventId, commentData);
 
       // Aggiungi il nuovo commento alla lista
-      setComments((prev) => [...prev, newCommentObj]);
+      setComments((prev) => [newCommentObj, ...prev]);
 
       // Reset form
       setNewComment("");
@@ -79,6 +94,84 @@ const CommentsSection = ({ event, onEventUpdate }) => {
       toast.error("Errore durante l'aggiunta del commento");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditComment = async (e) => {
+    e.preventDefault();
+
+    if (!editContent.trim() && editRating === 0) {
+      toast.error("Inserisci un commento o una valutazione");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const commentData = {
+        content: editContent.trim(),
+        rating: editRating || null,
+      };
+
+      const updatedComment = await apiService.comments.update(
+        editingComment._id,
+        commentData
+      );
+
+      // Aggiorna il commento nella lista
+      setComments((prev) =>
+        prev.map((comment) =>
+          (comment._id || comment.id) === editingComment._id
+            ? {
+              ...comment,
+              ...updatedComment,
+              isEdited: true,
+              editedAt: new Date(),
+            }
+            : comment
+        )
+      );
+
+      // Reset edit state
+      setEditingComment(null);
+      setEditContent("");
+      setEditRating(0);
+
+      toast.success("Commento modificato con successo!");
+
+      // Update event if a rating was provided
+      if (onEventUpdate && editRating > 0) {
+        onEventUpdate();
+      }
+    } catch (error) {
+      console.error("Error updating comment:", error);
+      toast.error("Errore durante la modifica del commento");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm("Sei sicuro di voler eliminare questo commento?")) {
+      return;
+    }
+
+    try {
+      await apiService.comments.delete(commentId);
+
+      // Rimuovi il commento dalla lista
+      setComments((prev) =>
+        prev.filter((comment) => (comment._id || comment.id) !== commentId)
+      );
+
+      toast.success("Commento eliminato con successo!");
+
+      // Update event stats
+      if (onEventUpdate) {
+        onEventUpdate();
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("Errore durante l'eliminazione del commento");
     }
   };
 
@@ -102,8 +195,8 @@ const CommentsSection = ({ event, onEventUpdate }) => {
               likes: result.isLiked
                 ? [...(comment.likes || []), { user: _user._id }]
                 : (comment.likes || []).filter(
-                    (like) => like.user !== _user._id
-                  ),
+                  (like) => like.user !== _user._id
+                ),
             };
           }
           return comment;
@@ -115,26 +208,44 @@ const CommentsSection = ({ event, onEventUpdate }) => {
     }
   };
 
-  const renderStarRating = (rating, interactive = false, onRate = null) => {
+  const startEditing = (comment) => {
+    setEditingComment(comment);
+    setEditContent(comment.content || "");
+    setEditRating(comment.rating || 0);
+  };
+
+  const cancelEditing = () => {
+    setEditingComment(null);
+    setEditContent("");
+    setEditRating(0);
+    setEditHoverRating(0);
+  };
+
+  const renderStarRating = (
+    rating,
+    interactive = false,
+    onRate = null,
+    isEdit = false
+  ) => {
+    const currentRating = isEdit
+      ? editHoverRating || editRating
+      : interactive
+        ? hoverRating || newRating
+        : rating;
+    const setHover = isEdit ? setEditHoverRating : setHoverRating;
+
     return (
       <div className="d-flex align-items-center">
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
             size={interactive ? 20 : 16}
-            className={`${interactive ? "me-1" : "me-0"} ${
-              star <= (interactive ? hoverRating || newRating : rating)
-                ? "text-warning"
-                : "text-muted"
-            } ${interactive ? "cursor-pointer" : ""}`}
-            fill={
-              star <= (interactive ? hoverRating || newRating : rating)
-                ? "currentColor"
-                : "none"
-            }
+            className={`${interactive ? "me-1" : "me-0"} ${star <= currentRating ? "text-warning" : "text-muted"
+              } ${interactive ? "cursor-pointer" : ""}`}
+            fill={star <= currentRating ? "currentColor" : "none"}
             onClick={interactive ? () => onRate(star) : undefined}
-            onMouseEnter={interactive ? () => setHoverRating(star) : undefined}
-            onMouseLeave={interactive ? () => setHoverRating(0) : undefined}
+            onMouseEnter={interactive ? () => setHover(star) : undefined}
+            onMouseLeave={interactive ? () => setHover(0) : undefined}
             style={{ cursor: interactive ? "pointer" : "default" }}
           />
         ))}
@@ -203,6 +314,7 @@ const CommentsSection = ({ event, onEventUpdate }) => {
                 comment.author?.avatar || "/default-avatar.png";
               const commentDate = comment.createdAt || new Date().toISOString();
               const likesCount = comment.likesCount || 0;
+              const isMyComment = _user && comment.author?._id === _user._id;
 
               // Check if current user has liked this comment
               const hasLiked =
@@ -225,34 +337,128 @@ const CommentsSection = ({ event, onEventUpdate }) => {
                     <div className="flex-grow-1">
                       <div className="d-flex align-items-center justify-content-between mb-1">
                         <div className="d-flex align-items-center">
-                          <h6 className="mb-0 me-2">{authorName}</h6>
-                          {comment.rating && renderStarRating(comment.rating)}
+                          <h6 className="mb-0">{authorName}</h6>
+                          {comment.isEdited && (
+                            <small className="text-muted ms-2">
+                              (modificato)
+                            </small>
+                          )}
                         </div>
-                        <small className="text-muted">
-                          {formatDate(commentDate, "datetime")}
-                        </small>
+                        <div className="d-flex align-items-center">
+                          <small className="text-muted me-2">
+                            {formatDate(commentDate, "datetime")}
+                          </small>
+                          {isMyComment && (
+                            <Dropdown>
+                              <Dropdown.Toggle
+                                variant="link"
+                                size="sm"
+                                className="p-0 text-muted border-0"
+                                style={{ background: "none" }}
+                              >
+                                <MoreVertical size={16} />
+                              </Dropdown.Toggle>
+                              <Dropdown.Menu>
+                                <Dropdown.Item
+                                  onClick={() => startEditing(comment)}
+                                >
+                                  <Edit2 size={14} className="me-2" />
+                                  Modifica
+                                </Dropdown.Item>
+                                <Dropdown.Item
+                                  className="text-danger"
+                                  onClick={() => handleDeleteComment(commentId)}
+                                >
+                                  <Trash2 size={14} className="me-2" />
+                                  Elimina
+                                </Dropdown.Item>
+                              </Dropdown.Menu>
+                            </Dropdown>
+                          )}
+                        </div>
                       </div>
 
-                      {comment.content && (
-                        <p className="mb-2">{comment.content}</p>
+                      {/* Editing form */}
+                      {editingComment && editingComment._id === commentId ? (
+                        <Form onSubmit={handleEditComment} className="mb-2">
+                          {canComment && (
+                            <Form.Group className="mb-2">
+                              <Form.Label className="small">
+                                Valutazione
+                              </Form.Label>
+                              <div>
+                                {renderStarRating(
+                                  editRating,
+                                  true,
+                                  setEditRating,
+                                  true
+                                )}
+                              </div>
+                            </Form.Group>
+                          )}
+                          <Form.Group className="mb-2">
+                            <Form.Control
+                              as="textarea"
+                              rows={3}
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              placeholder="Modifica il tuo commento..."
+                              maxLength={1000}
+                            />
+                          </Form.Group>
+                          <div className="d-flex gap-2">
+                            <Button
+                              type="submit"
+                              size="sm"
+                              variant="primary"
+                              disabled={
+                                loading ||
+                                (!editContent.trim() && editRating === 0)
+                              }
+                            >
+                              Salva
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline-secondary"
+                              onClick={cancelEditing}
+                            >
+                              Annulla
+                            </Button>
+                          </div>
+                        </Form>
+                      ) : (
+                        <>
+                          {/* Mostra le stelle se è una recensione */}
+                          {comment.rating > 0 && (
+                            <div className="mb-2">
+                              {renderStarRating(comment.rating)}
+                            </div>
+                          )}
+
+                          {comment.content && (
+                            <p className="mb-2">{comment.content}</p>
+                          )}
+
+                          <div className="d-flex align-items-center">
+                            <Button
+                              size="sm"
+                              variant="link"
+                              className="p-0 text-muted"
+                              onClick={() => handleLikeComment(commentId)}
+                              disabled={!isAuthenticated}
+                            >
+                              <Heart
+                                size={14}
+                                className="me-1"
+                                fill={hasLiked ? "currentColor" : "none"}
+                              />
+                              {likesCount > 0 && likesCount}
+                            </Button>
+                          </div>
+                        </>
                       )}
-
-                      <div className="d-flex align-items-center">
-                        <Button
-                          size="sm"
-                          variant="link"
-                          className="p-0 text-muted"
-                          onClick={() => handleLikeComment(commentId)}
-                          disabled={!isAuthenticated}
-                        >
-                          <Heart
-                            size={14}
-                            className="me-1"
-                            fill={hasLiked ? "currentColor" : "none"}
-                          />
-                          {likesCount > 0 && likesCount}
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -267,8 +473,8 @@ const CommentsSection = ({ event, onEventUpdate }) => {
               {canComment
                 ? "Sii il primo a lasciare una recensione!"
                 : canOnlyComment
-                ? "Sii il primo a commentare!"
-                : "Accedi per commentare"}
+                  ? "Sii il primo a commentare!"
+                  : "Accedi per commentare"}
             </small>
           </div>
         )}

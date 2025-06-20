@@ -1,38 +1,101 @@
 import React from "react";
-import { GoogleMap, LoadScript, MarkerF } from "@react-google-maps/api";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { Card } from "react-bootstrap";
+import L from "leaflet";
 
-const Maps_API_KEY = "LA_TUA_STESSA_CHIAVE_API";
+// CSS richiesto da Leaflet
+import "leaflet/dist/leaflet.css";
 
-const InteractiveMap = ({ events, center, zoom, height }) => {
-  const containerStyle = {
-    width: "100%",
-    height: height || "400px",
-    borderRadius: "8px",
-  };
+// FIX per un problema comune con Webpack dove le icone dei marker non appaiono.
+// Questo codice importa le icone direttamente e le imposta come predefinite.
+import icon from "leaflet/dist/images/marker-icon.png";
+import iconShadow from "leaflet/dist/images/marker-shadow.png";
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const InteractiveMap = ({
+  events = [],
+  center = { lat: 40.6828, lng: 16.5959 }, // Default: Matera, IT
+  zoom = 13,
+  height = "300px",
+}) => {
+  // Trova il primo evento con coordinate valide per centrare la mappa,
+  // altrimenti usa il centro di default.
+  const firstEventWithCoords = events.find(
+    (e) => e.location?.coordinates?.lat && e.location?.coordinates?.lng
+  );
+  const mapCenter = firstEventWithCoords
+    ? [
+      firstEventWithCoords.location.coordinates.lat,
+      firstEventWithCoords.location.coordinates.lng,
+    ]
+    : [center.lat, center.lng];
 
   return (
-    <LoadScript googleMapsApiKey={Maps_API_KEY}>
-      <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={zoom}>
-        {/*  Cicla sugli eventi e crea un Marker per ognuno */}
-        {events &&
-          events.map((event) => {
-            // Controlla che le coordinate esistano prima di renderizzare il Marker
-            const lat = event.location?.coordinates?.lat;
-            const lng = event.location?.coordinates?.lng;
+    <MapContainer
+      center={mapCenter}
+      zoom={zoom}
+      style={{ height, width: "100%", borderRadius: "8px" }}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
 
-            if (lat && lng) {
-              return (
-                <MarkerF
-                  key={event._id}
-                  position={{ lat, lng }}
-                  title={event.title}
-                />
-              );
-            }
-            return null; // Non renderizzare nulla se non ci sono coordinate
-          })}
-      </GoogleMap>
-    </LoadScript>
+      {events.map((event) => {
+        // Renderizza il marcatore solo se l'evento ha coordinate valide
+        if (
+          event.location?.coordinates?.lat &&
+          event.location?.coordinates?.lng
+        ) {
+          return (
+            <Marker
+              key={event._id}
+              position={[
+                event.location.coordinates.lat,
+                event.location.coordinates.lng,
+              ]}
+            >
+              <Popup>
+                <Card border="light" style={{ width: "180px" }}>
+                  <Card.Body className="p-2">
+                    <Card.Title
+                      as="h6"
+                      className="mb-1"
+                      style={{ fontSize: "0.9rem" }}
+                    >
+                      {event.title}
+                    </Card.Title>
+                    <Card.Text
+                      className="text-muted"
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      {event.location.venue}
+                    </Card.Text>
+                    <a
+                      href={`/events/${event._id}`}
+                      className="btn btn-primary btn-sm w-100 mt-2"
+                    >
+                      Vedi Dettagli
+                    </a>
+                  </Card.Body>
+                </Card>
+              </Popup>
+            </Marker>
+          );
+        }
+        return null; // Non renderizzare nulla se non ci sono coordinate
+      })}
+    </MapContainer>
   );
 };
 

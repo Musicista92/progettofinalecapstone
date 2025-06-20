@@ -77,11 +77,15 @@ const authAPI = {
 
   // Update user profile
   updateProfile: async (profileData) => {
+    // Se profileData è FormData, non convertirlo in JSON
+    const isFormData = profileData instanceof FormData;
+
     const response = await apiCall("/auth/profile", {
       method: "PUT",
-      body: JSON.stringify(profileData),
+      body: isFormData ? profileData : JSON.stringify(profileData),
     });
-    return response.data;
+
+    return response;
   },
 
   // Change password
@@ -121,7 +125,8 @@ const usersAPI = {
     const response = await apiCall(`/users/${userId}/follow`, {
       method: "POST",
     });
-    return response.data;
+    // RESTITUISCI L'INTERO OGGETTO { success, message, data }
+    return response;
   },
 
   // Get user followers
@@ -175,7 +180,7 @@ const eventsAPI = {
     const response = await apiCall(`/events/${eventId}`, {
       includeAuth: false,
     });
-    return response.data.event;
+    return response.data.event; // Restituisci direttamente l'evento
   },
 
   // Create new event
@@ -226,7 +231,7 @@ const eventsAPI = {
     return await eventsAPI.getById(eventId);
   },
 
-  //  Add/Remove event from favourites
+  // Add/Remove event from favourites
   toggleFavourite: async (eventId) => {
     if (!eventId) {
       throw new Error("Event ID is required");
@@ -329,8 +334,33 @@ const commentsAPI = {
     });
     return response.data;
   },
+  // Update comment
+  update: async (commentId, commentData) => {
+    if (!commentId) {
+      throw new Error("Comment ID is required");
+    }
+
+    const response = await apiCall(`/comments/${commentId}`, {
+      method: "PUT",
+      body: JSON.stringify(commentData),
+    });
+    return response.data.comment;
+  },
+
+  // Delete comment
+  delete: async (commentId) => {
+    if (!commentId) {
+      throw new Error("Comment ID is required");
+    }
+
+    const response = await apiCall(`/comments/${commentId}`, {
+      method: "DELETE",
+    });
+    return response.data;
+  },
 };
 
+//sistema per i favourites (distinto dalle partecipazioni)
 const favoritesAPI = {
   // Get user's favorite events
   get: async (params = {}) => {

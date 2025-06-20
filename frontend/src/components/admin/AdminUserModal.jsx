@@ -108,18 +108,6 @@ const AdminUserModal = ({ user, show, onHide, onUserUpdate }) => {
                 </Form.Select>
               </Form.Group>
             </Col>
-            <Col md={6} className="d-flex align-items-center">
-              <Form.Group className="mb-3 mt-3">
-                <Form.Check
-                  type="switch"
-                  id="isVerified-switch"
-                  label="Utente Verificato"
-                  name="isVerified"
-                  checked={formData.isVerified}
-                  onChange={handleChange}
-                />
-              </Form.Group>
-            </Col>
           </Row>
         </Form>
         <hr />

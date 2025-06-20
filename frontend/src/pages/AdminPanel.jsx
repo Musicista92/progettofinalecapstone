@@ -66,6 +66,7 @@ const AdminPanel = () => {
     try {
       setLoading(true);
 
+      // FIX 1: Chiamate API corrette
       const [statsData, pendingData, eventsData, usersData] = await Promise.all(
         [
           apiService.stats.getDashboard(),
@@ -76,9 +77,9 @@ const AdminPanel = () => {
       );
 
       setStats(statsData);
-      setPendingEvents(pendingData || []);
+      setPendingEvents(pendingData || []); // La API admin/pending-events restituisce direttamente l'array
       setAllEvents(eventsData.data || []);
-      setUsers(usersData.users || []);
+      setUsers(usersData.users || []); // L'array di utenti è in usersData.users
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       toast.error("Errore nel caricamento dei dati del pannello");
@@ -105,7 +106,7 @@ const AdminPanel = () => {
 
   const handleRejectEvent = async () => {
     if (!selectedEvent) return;
-    const eventId = selectedEvent._id;
+    const eventId = selectedEvent._id; // Uso _id
 
     try {
       await apiService.admin.rejectEvent(eventId, rejectionReason);
@@ -371,15 +372,15 @@ const AdminPanel = () => {
                             userData.role === "admin"
                               ? "danger"
                               : userData.role === "organizer"
-                              ? "success"
-                              : "secondary"
+                                ? "success"
+                                : "secondary"
                           }
                         >
                           {userData.role === "admin"
                             ? "👑 Admin"
                             : userData.role === "organizer"
-                            ? "🎵 Organizer"
-                            : "🕺 User"}
+                              ? "🎵 Organizer"
+                              : "🕺 User"}
                         </Badge>
                       </td>
                       <td>
@@ -387,6 +388,7 @@ const AdminPanel = () => {
                       </td>
                       <td>
                         <div className="d-flex gap-1">
+                          {/* Bottone VISTA: usa Link per navigare */}
                           <Button
                             as={Link}
                             to={`/users/${userData._id}`}
@@ -396,6 +398,7 @@ const AdminPanel = () => {
                           >
                             <Eye size={14} />
                           </Button>
+                          {/* Bottone MODIFICA: apre la modale */}
                           <Button
                             size="sm"
                             variant="outline-secondary"
@@ -413,13 +416,12 @@ const AdminPanel = () => {
                   user={selectedUser}
                   show={showEditModal}
                   onHide={handleCloseEditModal}
-                  onUserUpdate={fetchDashboardData}
+                  onUserUpdate={fetchDashboardData} // Ricarica i dati dopo una modifica
                 />
               </Table>
             </div>
           )}
 
-          {/* ... altri pannelli come "overview" e "events" ... */}
           {activeTab === "overview" && (
             <div className="text-center py-5">
               <small className="text-muted">Panoramica in sviluppo...</small>
